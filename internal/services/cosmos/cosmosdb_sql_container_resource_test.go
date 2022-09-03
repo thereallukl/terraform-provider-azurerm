@@ -3,6 +3,7 @@ package cosmos_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/services/cosmos-db/mgmt/2021-10-15/documentdb"
@@ -200,6 +201,22 @@ func TestAccCosmosDbSqlContainer_partition_key_version(t *testing.T) {
 			Check: acceptance.ComposeAggregateTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
 				check.That(data.ResourceName).Key("partition_key_version").HasValue("2"),
+			),
+		},
+		data.ImportStep(),
+	})
+}
+
+func TestAccCosmosDbSqlContainer_system_assigned_partition_key(t *testing.T) {
+	data := acceptance.BuildTestData(t, "azurerm_cosmosdb_sql_container", "test")
+	r := CosmosSqlContainerResource{}
+	data.ResourceTest(t, r, []acceptance.TestStep{
+		{
+
+			Config: r.system_assigned_partition_key(data, nil),
+			Check: acceptance.ComposeAggregateTestCheckFunc(
+				check.That(data.ResourceName).ExistsInAzure(r),
+				check.That(data.ResourceName).Key("system_assigned_partition_key").HasValue("true"),
 			),
 		},
 		data.ImportStep(),
@@ -555,6 +572,26 @@ resource "azurerm_cosmosdb_sql_container" "test" {
   partition_key_version = %[3]d
 }
 `, CosmosSqlDatabaseResource{}.basic(data), data.RandomInteger, version)
+}
+
+func (CosmosSqlContainerResource) system_assigned_partition_key(data acceptance.TestData, is_system_assigned *bool) string {
+	var is_system_assigned_parsed string
+	if is_system_assigned == nil {
+		is_system_assigned_parsed = "null"
+	} else {
+		is_system_assigned_parsed = strconv.FormatBool(*is_system_assigned)
+	}
+	return fmt.Sprintf(`
+%[1]s
+resource "azurerm_cosmosdb_sql_container" "test" {
+  name                          = "acctest-CSQLC-%[2]d"
+  resource_group_name           = azurerm_cosmosdb_account.test.resource_group_name
+  account_name                  = azurerm_cosmosdb_account.test.name
+  database_name                 = azurerm_cosmosdb_sql_database.test.name
+  partition_key_path            = "/definition/id"
+  system_assigned_partition_key = %[3]s
+}
+`, CosmosSqlDatabaseResource{}.basic(data), data.RandomInteger, is_system_assigned_parsed)
 }
 
 func (CosmosSqlContainerResource) conflictResolutionPolicy(data acceptance.TestData) string {

@@ -83,6 +83,13 @@ func resourceCosmosDbSQLContainer() *pluginsdk.Resource {
 				ValidateFunc: validation.IntBetween(1, 2),
 			},
 
+			// this is true only for migrated partition keys https://aka.ms/migrated-non-partitioned-collection
+			"system_assigned_partition_key": {
+				Type:     pluginsdk.TypeBool,
+				Optional: true,
+				ForceNew: true,
+			},
+
 			"conflict_resolution_policy": common.ConflictResolutionPolicy(),
 
 			"throughput": {
@@ -267,6 +274,10 @@ func resourceCosmosDbSQLContainerUpdate(d *pluginsdk.ResourceData, meta interfac
 		if partitionKeyVersion, ok := d.GetOk("partition_key_version"); ok {
 			db.SQLContainerCreateUpdateProperties.Resource.PartitionKey.Version = utils.Int32(int32(partitionKeyVersion.(int)))
 		}
+
+		if systemAssignedPartitionKey, ok := d.GetOk("system_assigned_partition_key"); ok {
+			db.SQLContainerCreateUpdateProperties.Resource.PartitionKey.SystemKey = utils.Bool(systemAssignedPartitionKey.(bool))
+		}
 	}
 
 	if keys := expandCosmosSQLContainerUniqueKeys(d.Get("unique_key").(*pluginsdk.Set)); keys != nil {
@@ -349,6 +360,9 @@ func resourceCosmosDbSQLContainerRead(d *pluginsdk.ResourceData, meta interface{
 				}
 				if version := pk.Version; version != nil {
 					d.Set("partition_key_version", version)
+				}
+				if systemKey := pk.SystemKey; systemKey != nil {
+					d.Set("system_assigned_partition_key", systemKey)
 				}
 			}
 
